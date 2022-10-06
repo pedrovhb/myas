@@ -1,0 +1,31 @@
+[tool.poetry]
+name = "myas"
+version = "0.1.0"
+description = ""
+authors = ["Pedro Batista <pedrovhb@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+mypy = {extras = ["d"], version = "^0.982"}
+black = {extras = ["d"], version = "^22.8.0"}
+isort = "^5.10.1"
+lxml = "^4.9.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.10"
+warn_unused_configs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unreachable = true
+strict = true
+show_error_codes = true
+show_traceback = true
+check_untyped_defs = true
+enable_recursive_aliases = true
