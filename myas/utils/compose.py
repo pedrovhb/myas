@@ -1,16 +1,7 @@
 from __future__ import annotations
 
 import inspect
-from typing import (
-    overload,
-    Callable,
-    Coroutine,
-    Any,
-    ParamSpec,
-    cast,
-    TypeVar,
-)
-
+from typing import Any, Callable, Coroutine, ParamSpec, TypeVar, cast, overload
 
 P = ParamSpec("P")
 _InputT = TypeVar("_InputT")

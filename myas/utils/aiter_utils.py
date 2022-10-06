@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import asyncio
 import functools
-from asyncio import Queue, Future
+from asyncio import Future, Queue
 from typing import (
+    Any,
+    AsyncIterable,
+    AsyncIterator,
     Callable,
     Coroutine,
-    Any,
+    Iterable,
+    NewType,
     ParamSpec,
     TypeVar,
-    Iterable,
-    AsyncIterator,
-    AsyncIterable,
-    NewType,
 )
 
 T = TypeVar("T")

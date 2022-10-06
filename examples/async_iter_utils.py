@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-from typing import AsyncIterator
 import random
+from typing import AsyncIterator
 
 from myas.utils import async_iterable_pipe, merge_async_iterators
 
