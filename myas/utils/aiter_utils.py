@@ -18,9 +18,15 @@ from typing import (
 T = TypeVar("T")
 P = ParamSpec("P")
 
-_SentinelType = NewType("_SentinelType", object)
-_NoStopSentinel = _SentinelType(object())
-StopQueueIteration = _SentinelType(object())
+# _SentinelType = NewType("_SentinelType", object)
+
+
+class _SentinelType:
+    """An object representing a sentinel command."""
+
+
+_NoStopSentinel = _SentinelType()
+StopQueueIteration = _SentinelType()
 
 
 def run_sync(f: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
@@ -127,27 +133,33 @@ async def merge_async_iterators(*async_iterables: AsyncIterable[T]) -> AsyncIter
 
 async def queue_to_aiter(
     queue: Queue[T],
-    stop_sentinel: T | _SentinelType = StopQueueIteration,
+    stop_future: Future[None] | None = None,
 ) -> AsyncIterator[T]:
     """Iterate over the items in a queue.
 
-    Optionally, a stop sentinel can be provided. If the sentinel is encountered, the iteration
-    will stop. If the sentinel is not provided, the iteration will continue indefinitely.
+    Optionally, a stop future can be provided. If the future is cancelled, the iteration will
+    stop. If the future is not provided, the iteration will continue indefinitely.
 
     Args:
         queue: The queue to iterate over.
-        stop_sentinel: If this object is received from the queue, the iteration will stop. The
-            _NoStopSentinel object is used to indicate that the iteration should continue
-            indefinitely.
+        stop_future: If this future is done, the iteration will stop.
 
     Yields:
         The items in the queue.
     """
     while True:
-        item = await queue.get()
+
+        get_item_task: Future[T] = asyncio.ensure_future(queue.get())
+
+        futs: tuple[Future[T]] | tuple[Future[T], Future[None]]
+        futs = (get_item_task,) if stop_future is None else (get_item_task, stop_future)
+
+        done, pending = await asyncio.wait(futs, return_when=asyncio.FIRST_COMPLETED)
+        if stop_future in done:
+            break
+
+        item = get_item_task.result()
         queue.task_done()
-        if item is stop_sentinel and stop_sentinel is not _NoStopSentinel:
-            return
         yield item
 
 

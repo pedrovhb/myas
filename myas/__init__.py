@@ -1,3 +1,5 @@
+from loguru import logger
+
 from .utils import (
     aiter_to_queue,
     async_iterable_pipe,
@@ -11,6 +13,8 @@ from .utils import (
     run_on_thread,
     run_sync,
 )
+
+logger.disable("myas")
 
 __all__ = [
     "compose",

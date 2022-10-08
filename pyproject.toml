@@ -6,11 +6,14 @@ authors = ["Pedro Batista <pedrovhb@gmail.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.10"
+loguru = "^0.6.0"
+rich = "^12.6.0"
 
 [tool.poetry.dev-dependencies]
 mypy = {extras = ["d"], version = "^0.982"}
 black = {extras = ["d"], version = "^22.8.0"}
 isort = "^5.10.1"
+parse = "^1.19.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
