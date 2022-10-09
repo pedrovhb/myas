@@ -18,22 +18,22 @@ T = TypeVar("T")
 U = TypeVar("U")
 
 
-@overload
+# @overload
+# def ensure_coroutine(
+#     fn: Callable[P, Coroutine[Any, Any, _OutputT]],
+# ) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
+#     ...
+#
+#
+# @overload
+# def ensure_coroutine(
+#     fn: Callable[P, _OutputT],
+# ) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
+#     ...
+
+
 def ensure_coroutine(
-    fn: Callable[P, Coroutine[Any, Any, _OutputT]],
-) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
-    ...
-
-
-@overload
-def ensure_coroutine(
-    fn: Callable[P, _OutputT],
-) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
-    ...
-
-
-def ensure_coroutine(
-    fn: Callable[P, Any],
+    fn: Callable[P, _OutputT] | Callable[P, Coroutine[Any, Any, _OutputT]],
 ) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
     """Ensure that a function is a coroutine (i.e. async).
 
@@ -47,14 +47,14 @@ def ensure_coroutine(
         The function as a coroutine.
     """
     if inspect.iscoroutinefunction(fn):
-        return fn
+        return cast(Callable[P, Coroutine[Any, Any, _OutputT]], fn)
     else:
         _fn_sync = cast(Callable[P, _OutputT], fn)
 
         async def _as_async(*args: P.args, **kwargs: P.kwargs) -> _OutputT:
             return _fn_sync(*args, **kwargs)
 
-        return _as_async
+        return cast(Callable[P, Coroutine[Any, Any, _OutputT]], _as_async)
 
 
 @overload
