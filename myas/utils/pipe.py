@@ -11,7 +11,7 @@ from typing import (
     overload,
 )
 
-from myas.utils.compose import compose
+from .compose import compose
 
 P = ParamSpec("P")
 _InputT = TypeVar("_InputT")
@@ -189,3 +189,9 @@ async def async_iterable_pipe(
 
     async for value in async_iterable:
         yield await fn(value)
+
+
+__all__ = (
+    "pipe",
+    "async_iterable_pipe",
+)

@@ -20,7 +20,7 @@ from rich.progress import (
     Task as RichProgressTask,
 )
 
-from myas import merge_async_iterators
+from myas import merge_async_iterables
 from myas.processor import WorkerManager, WorkerManagerBase, WorkerManagerStatus
 
 c = Console()
@@ -273,7 +273,7 @@ async def main() -> None:
 
     p = Progress(*used_cols, console=c)
 
-    mega_source = merge_async_iterators(some_source(), some_source(), some_source())
+    mega_source = merge_async_iterables(some_source(), some_source(), some_source())
     managers, chained_aiter = pipe_pooled(mega_source, mul_two, spell_number)
 
     with p:

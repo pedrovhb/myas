@@ -24,7 +24,7 @@ from typing import (
 
 from loguru import logger as default_logger
 
-from myas import queue_to_aiter
+from myas import queue_to_async_iterator
 from myas.utils.misc import wait_all_simultaneously, NegativeAwaitableEvent
 
 _InputT = TypeVar("_InputT")
@@ -216,7 +216,7 @@ class WorkerManagerBase(Generic[_InputT, _OutputT], AcceptsInput[_InputT]):
     def add_source(self, source: Queue[_InputT] | AsyncIterable[_InputT]) -> None:
         logger.debug(f"Adding source - {source}")
         if isinstance(source, Queue):
-            source = queue_to_aiter(source)
+            source = queue_to_async_iterator(source)
         if isinstance(source, AsyncIterable):
             source = aiter(source)
 
@@ -354,7 +354,7 @@ class WorkerManager(WorkerManagerBase[_InputT, _OutputT], AsyncIterable[_OutputT
         #  run in separate tasks, and not waiting for the queue.
 
     def __aiter__(self) -> AsyncIterator[_OutputT]:
-        return queue_to_aiter(self._output_queue, stop_future=self._closed_future)
+        return queue_to_async_iterator(self._output_queue, stop_future=self._closed_future)
 
     async def close(self, stop_immediately: bool = False) -> None:
 

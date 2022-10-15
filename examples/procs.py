@@ -265,15 +265,13 @@ if __name__ == "__main__":
         async for result in chained:
             print(result)
 
-        path = Path(
-            "/home/pedro/projs/pscrapers/pscrapers/zanetta/__hardlink_flat/275384121_tbf-set-254-yeraldin-looking-stunning-ttl-photos-124-019.jpg"
-        )
+        path = Path(           "/home/pedro/in.jpg"        )
         dst_path = Path("/home/pedro/out.jpg")
         result = await JpegRecompressOutput.optimize(path, dst_path)
 
         ps = [
             p
-            for p in Path("/home/pedro/projs/pscrapers/pscrapers/zanetta/__hardlink_flat").iterdir()
+            for p in Path("/home/pedro/Pictures").iterdir()
             if p.is_file() and p.suffix == ".jpg"
         ]
 

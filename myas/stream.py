@@ -19,7 +19,7 @@ from typing import (
 
 from loguru import logger
 
-from myas import merge_async_iterators, iter_to_aiter, ensure_coroutine
+from myas import merge_async_iterables, iter_to_aiter, ensure_coroutine
 
 """
 
@@ -73,7 +73,7 @@ def merge_iter_aiter(*its_aits: AsyncIterable[_T] | Iterable[_T]) -> AsyncIterat
     if not its_aits:
         return iter_to_aiter(())
     aits = [iter_to_aiter(other) if isinstance(other, Iterable) else other for other in its_aits]
-    return merge_async_iterators(*aits)
+    return merge_async_iterables(*aits)
 
 
 class AsyncStream(Generic[_InputT], AsyncIterable[_InputT]):
