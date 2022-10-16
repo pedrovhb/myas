@@ -29,7 +29,7 @@ from typing import (
 import rich
 from loguru import logger
 
-from myas import async_iterable_pipe
+from myas import pipe_async_iterable
 
 _InputT = TypeVar("_InputT")
 _OutputT = TypeVar("_OutputT", covariant=True)
@@ -282,7 +282,7 @@ class EncodedLineYielderProcessor(BaseSubprocessor[str, str]):
 
     def stdout(self) -> AsyncIterable[_StdoutOutputT]:
         """Return the stdout."""
-        return async_iterable_pipe(self._stdout_buffer_processor, self.on_stdout_line)
+        return pipe_async_iterable(self._stdout_buffer_processor, self.on_stdout_line)
 
     def stderr(self) -> AsyncIterable[_StderrOutputT]:
         """Return the stderr."""

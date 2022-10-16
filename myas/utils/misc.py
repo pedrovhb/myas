@@ -1,4 +1,5 @@
 import asyncio
+from typing import Literal
 
 
 async def wait_all_simultaneously(*evs: asyncio.Event) -> None:
@@ -16,6 +17,18 @@ async def wait_all_simultaneously(*evs: asyncio.Event) -> None:
         await asyncio.wait([ev.wait() for ev in evs])
         if all(ev.is_set() for ev in evs):
             break
+
+
+def crt_task_or_raise() -> asyncio.Task:
+    """Return the current task or raise an exception if it is not a task.
+
+    Returns:
+        The current task.
+    """
+    task = asyncio.current_task()
+    if task is None:
+        raise RuntimeError("Not running in an asyncio task")
+    return task
 
 
 class NegativeAwaitableEvent(asyncio.Event):
@@ -36,3 +49,10 @@ class NegativeAwaitableEvent(asyncio.Event):
     def set(self) -> None:
         super().set()
         self._negative_event.clear()
+
+
+__all__ = (
+    "wait_all_simultaneously",
+    "crt_task_or_raise",
+    "NegativeAwaitableEvent",
+)

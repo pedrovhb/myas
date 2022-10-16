@@ -51,6 +51,13 @@ class Dashboard:
         self.console.print(f"{manager} updated - {manager._input_queue.qsize()} items in queue")
         # todo - add get_status method to WorkerManagerBase
 
+    async def _manager_watcher(self) -> None:
+        while True:
+            await asyncio.gather(
+                *[self._update_manager_status(manager) for manager in self._managers]
+            )
+            asyncio.sleep(self._update_rate)
+
     def register_manager(self, manager: WorkerManager[_InputT, _OutputT]) -> None:
         self._managers.append(manager)
 

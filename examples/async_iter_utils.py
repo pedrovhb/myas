@@ -5,10 +5,11 @@ import random
 from typing import AsyncIterator
 
 from myas import (
-    async_iterable_pipe,
+    pipe_async_iterable,
     merge_async_iterables,
     clone_async_iterable,
-    split_async_iterable, aclone,
+    split_async_iterable,
+    aclone,
 )
 
 
@@ -63,16 +64,16 @@ async def example_merge_aiters() -> None:
 
 
 async def example_compose_pipe() -> None:
-    async for item in async_iterable_pipe(arange(0, 10), multiply_by_two, add_one):
+    async for item in pipe_async_iterable(arange(0, 10), multiply_by_two, add_one):
         print(item)
 
     async_iterators = [
-        async_iterable_pipe(arange(0, 10), add_one, multiply_by_two),
-        async_iterable_pipe(arange(100, 110), add_one, multiply_by_two, multiply_by_two),
+        pipe_async_iterable(arange(0, 10), add_one, multiply_by_two),
+        pipe_async_iterable(arange(100, 110), add_one, multiply_by_two, multiply_by_two),
     ]
     merged_iterator = merge_async_iterables(*async_iterators)
 
-    async for inverted_string in async_iterable_pipe(merged_iterator, spell_out, invert):
+    async for inverted_string in pipe_async_iterable(merged_iterator, spell_out, invert):
         # reveal_type(inverted_string)  # mypy: Revealed type is 'builtins.str'
         print(inverted_string)
 

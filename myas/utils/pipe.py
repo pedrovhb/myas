@@ -112,14 +112,14 @@ async def pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
 ) -> AsyncIterator[_InputT]:
     ...
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
 ) -> AsyncIterator[_A]:
@@ -127,7 +127,7 @@ def async_iterable_pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
     __function_2: Callable[[_A], Coroutine[Any, Any, _B]],
@@ -136,7 +136,7 @@ def async_iterable_pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
     __function_2: Callable[[_A], Coroutine[Any, Any, _B]],
@@ -146,7 +146,7 @@ def async_iterable_pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
     __function_2: Callable[[_A], Coroutine[Any, Any, _B]],
@@ -157,7 +157,7 @@ def async_iterable_pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
     __function_2: Callable[[_A], Coroutine[Any, Any, _B]],
@@ -169,7 +169,7 @@ def async_iterable_pipe(
 
 
 @overload
-def async_iterable_pipe(
+def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     __function_1: Callable[[_InputT], Coroutine[Any, Any, _A]],
     __function_2: Callable[[_A], Coroutine[Any, Any, _B]],
@@ -181,7 +181,7 @@ def async_iterable_pipe(
     ...
 
 
-async def async_iterable_pipe(
+async def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
     *functions: Callable[..., Coroutine[Any, Any, Any]],
 ) -> AsyncIterator[_OutputT]:
@@ -193,5 +193,5 @@ async def async_iterable_pipe(
 
 __all__ = (
     "pipe",
-    "async_iterable_pipe",
+    "pipe_async_iterable",
 )

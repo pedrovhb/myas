@@ -346,7 +346,7 @@ class WorkerManager(WorkerManagerBase[_InputT, _OutputT], AsyncIterable[_OutputT
         start_immediately: bool = True,
     ) -> None:
         super().__init__(function, n_workers, start_immediately)
-        self._output_queue = Queue[_OutputT]()
+        self._output_queue = Queue[_OutputT](maxsize=self)
 
         self._closed_future = asyncio.Future[None]()
         self.add_sink(self._output_queue.put)
