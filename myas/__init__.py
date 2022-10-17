@@ -1,33 +1,14 @@
-from . import utils as _utils_file
-from . import closeable_queue as _closeable_queue_file
+from myas.utils.pipe import pipe_async_iterable
+from myas.utils.compose import compose, ensure_coroutine
+from utils.aiter_utils import merge_async_iterables
 
-from .utils import *  # noqa: F401, F403
-from .closeable_queue import *  # noqa: F401, F403
-
-amap = map_async_iterable
 apipe = pipe_async_iterable
-afilter = filter_async_iterable
-asplit = split_async_iterable
-aclone = clone_async_iterable
 amerge = merge_async_iterables
-agather = gather_async_iterables
-
-q2a = queue_to_async_iterator
-a2q = async_iterable_to_queue
-
-itoa = iter_to_aiter
-
 
 __all__ = (
-    *_utils_file.__all__,
-    *_closeable_queue_file.__all__,
-    "amap",
-    "afilter",
-    "asplit",
-    "aclone",
+    "pipe_async_iterable",
+    "apipe",
     "amerge",
-    "agather",
-    "q2a",
-    "a2q",
-    "itoa",
+    "compose",
+    "ensure_coroutine",
 )

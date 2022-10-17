@@ -127,7 +127,7 @@ name = "humanize"
 version = "4.4.0"
 description = "Python humanize utilities"
 category = "main"
-optional = false
+optional = true
 python-versions = ">=3.7"
 
 [package.extras]
@@ -323,7 +323,7 @@ rich = ["rich", "prompt_toolkit", "humanize"]
 [metadata]
 lock-version = "1.1"
 python-versions = "^3.10"
-content-hash = "ca32caa347eb5acc7c98af6d70b2b7a08e3ba6f6724feb3464838c24399fd2df"
+content-hash = "a1edf89de6f8445d8cff6ccf7ae9de516cdddd77a5279a6820c3db4c1351e145"
 
 [metadata.files]
 aiohttp = [

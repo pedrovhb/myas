@@ -26,7 +26,7 @@ from typing import (
 )
 
 from .compose import ensure_coroutine
-from ..closeable_queue import QueueExhausted, CloseableQueue, QueueClosedException
+from myas.closeable_queue import QueueExhausted, CloseableQueue, QueueClosedException
 
 T = TypeVar("T")
 U = TypeVar("U")

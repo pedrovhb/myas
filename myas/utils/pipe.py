@@ -183,9 +183,9 @@ def pipe_async_iterable(
 
 async def pipe_async_iterable(
     async_iterable: AsyncIterable[_InputT],
-    *functions: Callable[..., Coroutine[Any, Any, Any]],
+    *functions,
 ) -> AsyncIterator[_OutputT]:
-    fn: Callable[[_InputT], Coroutine[Any, Any, _OutputT]] = compose(*functions)
+    fn = compose(*functions)
 
     async for value in async_iterable:
         yield await fn(value)
