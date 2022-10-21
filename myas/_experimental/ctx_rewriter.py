@@ -20,8 +20,6 @@ from typing import (
 )
 import inspect
 
-from loguru import logger
-
 
 def extract_indented_contents(x: Traceback) -> str:
     line_no = x.lineno
@@ -123,44 +121,25 @@ class PipelineEnchanter:
         self._frame: FrameType
 
     def __enter__(self) -> None:
-        crt_frame = inspect.currentframe()
-        assert isinstance(crt_frame, FrameType) and isinstance(crt_frame.f_back, FrameType)
-        stack_frame = crt_frame.f_back
-        self._frame = stack_frame
 
-        replaced_funs: dict[str, dict[str, Callable[..., Any]]] = {
-            "f_locals": {},
-            "f_globals": {},
-            "f_builtins": {},
-        }
+        self.old_getattribute = __builtins__.__getattribute__
+        self.old_getattr = __builtins__.getattr
 
-        for var_scope_name in "f_locals", "f_globals", "f_builtins":
-            logger.info(f"Looking through {var_scope_name}")
-            var_scope = getattr(stack_frame, var_scope_name)
+        def on_getattribute(*args, **kwargs):
+            print("attrs:", args, kwargs)
+            return self.old_getattribute(*args, **kwargs)
 
-            for name in stack_frame.f_code.co_names:
-                if name in var_scope:
+        def on_getattr(*args, **kwargs):
+            print("attrs (getattribute):", args, kwargs)
+            return self.old_getattr(*args, **kwargs)
 
-                    to_replace = var_scope[name]
-                    if not inspect.isfunction(to_replace):
-                        continue
-
-                    print(f"Found function {name}")
-                    replaced_funs[var_scope_name][name] = to_replace
-
-                    to_replace.__dict__["__original_call"] = getattr(to_replace, "__call__", None)
-                    to_replace.__dict__["__call__"] = lambda *args, **kwargs: print("honk")
-                    to_replace.__dict__["__add__"] = lambda *args, **kwargs: print("honk")
-                    var_scope[name] = to_replace
-
-        self._substituted_vars = replaced_funs
+        __builtins__.__getattribute__ = on_getattribute
+        __builtins__.getattr = on_getattr
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> bool:
-        print("exit")
-        for var_dict_name, var_dict in self._substituted_vars.items():
-            for name, fun in var_dict.items():
-                var_scope = getattr(self._frame, var_dict_name)
-                var_scope[name] = fun
+        __builtins__.__getattribute__ = self.old_getattribute
+        __builtins__.getattr = self.old_getattr
+
         return False
 
 
@@ -205,10 +184,12 @@ async def fuooo():
     nonlocal_scop = 1
 
     async def some():
-        with A() as a:
+        with PipelineEnchanter():
             # f = 2 - "foo"
             # print(f)
             zz = 2 + 10
+            getattr(zz, "foo", None)
+            spell_out + double
             compd = double + spell_out + (double + reverse)  # type: ignore
             # add(1, 2) >> compd >> (spell_out + reverse)
 

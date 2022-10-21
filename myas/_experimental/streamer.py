@@ -208,9 +208,9 @@ async def main() -> None:
 
     transport, protocol = await loop.subprocess_exec(
         lambda: MyProtStream(2**16, loop),
-        "cat",
+        # "cat",
         # fd_reader,
-        # "du",
+        "du",
         # pass_fds=[p_fd.fileno()],
         stdin=asyncio.subprocess.PIPE,
         # stdin=p_fd,
