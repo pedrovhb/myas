@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Queue, Task, PriorityQueue, Future, mixins, AbstractEventLoop
+from asyncio import AbstractEventLoop, Future, PriorityQueue, Queue, Task, mixins
 from typing import TypeVar
 
 import myas

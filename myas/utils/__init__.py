@@ -6,5 +6,4 @@ It's not pretty, but it works, and it's also how the standard library does it ¯
 
 from myas.utils.compose import compose, ensure_coroutine
 
-
 __all__ = ()

@@ -3,27 +3,27 @@ from __future__ import annotations
 import asyncio
 import operator
 from abc import ABC
-from asyncio import Event, Queue, Task, Future, SubprocessProtocol, transports, StreamReader
-from collections import deque, defaultdict
+from asyncio import Event, Future, Queue, StreamReader, SubprocessProtocol, Task, transports
+from collections import defaultdict, deque
 from typing import (
-    Generic,
-    TypeVar,
-    Iterable,
-    Sequence,
-    Container,
-    MutableSequence,
-    Protocol,
-    Iterator,
+    Any,
     AsyncIterable,
     AsyncIterator,
     Awaitable,
-    Literal,
-    ClassVar,
     Callable,
-    ParamSpec,
+    ClassVar,
+    Container,
+    Generic,
+    Iterable,
+    Iterator,
+    Literal,
+    MutableSequence,
     NewType,
+    ParamSpec,
+    Protocol,
+    Sequence,
     TypeAlias,
-    Any,
+    TypeVar,
 )
 
 import rich

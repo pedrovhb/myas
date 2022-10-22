@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-
 import asyncio.subprocess
 import functools
 import os.path
 import time
 from asyncio import (
-    subprocess,
-    streams,
     IncompleteReadError,
-    events,
-    transports,
-    protocols,
     LimitOverrunError,
+    events,
+    protocols,
+    streams,
+    subprocess,
+    transports,
 )
 from asyncio.subprocess import Process, SubprocessStreamProtocol
 from concurrent.futures import ProcessPoolExecutor
@@ -20,29 +19,28 @@ from os import PathLike
 from pathlib import Path
 from typing import (
     Any,
-    Protocol,
-    TypeVar,
-    ParamSpec,
-    Callable,
-    Literal,
-    TypeGuard,
-    Coroutine,
-    cast,
     AsyncIterable,
-    Iterator,
-    Tuple,
-    Concatenate,
     AsyncIterator,
-    NamedTuple,
-    Type,
+    Callable,
+    Concatenate,
+    Coroutine,
     Iterable,
+    Iterator,
+    Literal,
+    NamedTuple,
+    ParamSpec,
+    Protocol,
+    Tuple,
+    Type,
+    TypeGuard,
+    TypeVar,
+    cast,
 )
 
 import rich
 from mypy_extensions import Arg
 
-from myas import amerge, amap, iter_to_aiter, merge_async_iterables
-from myas import iter_to_aiter
+from myas import amap, amerge, iter_to_aiter, merge_async_iterables
 
 P = ParamSpec("P")
 R = TypeVar("R")

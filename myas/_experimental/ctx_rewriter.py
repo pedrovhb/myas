@@ -1,24 +1,22 @@
 from __future__ import annotations
 
-from types import CoroutineType, FrameType
 import asyncio
+import inspect
 import textwrap
-from inspect import (
-    Traceback,
-)
+from inspect import Traceback
+from types import CoroutineType, FrameType
 from typing import (
-    AsyncIterator,
     Any,
-    Generic,
-    ParamSpec,
-    TypeVar,
+    AsyncIterator,
     Callable,
     Coroutine,
-    Protocol,
-    cast,
+    Generic,
     Iterable,
+    ParamSpec,
+    Protocol,
+    TypeVar,
+    cast,
 )
-import inspect
 
 
 def extract_indented_contents(x: Traceback) -> str:

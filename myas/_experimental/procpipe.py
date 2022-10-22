@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import io
 import os
 import time
-from asyncio import StreamWriter, StreamReader
+from asyncio import StreamReader, StreamWriter
 from asyncio.subprocess import Process
-import io
 from os import memfd_create
 from pathlib import Path
-from typing import AsyncIterable, Iterable, AsyncIterator, Iterator, IO, Any
+from typing import IO, Any, AsyncIterable, AsyncIterator, Iterable, Iterator
 
 from loguru import logger
 

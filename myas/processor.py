@@ -3,29 +3,29 @@ from __future__ import annotations
 import asyncio
 import statistics
 import textwrap
-from asyncio import Queue, Future, Task
+from asyncio import Future, Queue, Task
 from collections import Counter
 from dataclasses import dataclass, field
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from typing import (
-    Generic,
-    TypeVar,
-    Callable,
-    Coroutine,
     Any,
     AsyncIterable,
-    Protocol,
     AsyncIterator,
-    NewType,
+    Callable,
+    Coroutine,
+    Generic,
     NamedTuple,
+    NewType,
     NoReturn,
+    Protocol,
+    TypeVar,
 )
 
 from loguru import logger as default_logger
 
 from myas import queue_to_async_iterator
-from myas.utils.misc import wait_all_simultaneously, NegativeAwaitableEvent
+from myas.utils.misc import NegativeAwaitableEvent, wait_all_simultaneously
 
 _InputT = TypeVar("_InputT")
 _OutputT = TypeVar("_OutputT")

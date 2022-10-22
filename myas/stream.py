@@ -4,22 +4,22 @@ import asyncio
 from asyncio import Future, Task
 from collections import defaultdict
 from typing import (
-    Generic,
-    TypeVar,
+    Any,
     AsyncIterable,
-    Iterable,
     AsyncIterator,
     Callable,
-    Hashable,
     Coroutine,
-    Any,
-    TypeAlias,
+    Generic,
+    Hashable,
+    Iterable,
     Sequence,
+    TypeAlias,
+    TypeVar,
 )
 
 from loguru import logger
 
-from myas import merge_async_iterables, iter_to_aiter, ensure_coroutine
+from myas import ensure_coroutine, iter_to_aiter, merge_async_iterables
 
 """
 

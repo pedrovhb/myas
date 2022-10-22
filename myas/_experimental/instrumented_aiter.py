@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import TypeVar, AsyncIterator, AsyncIterable, Generic
+from typing import AsyncIterable, AsyncIterator, Generic, TypeVar
 
 _T = TypeVar("_T")
 

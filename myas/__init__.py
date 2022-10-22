@@ -1,6 +1,6 @@
-from myas.utils.pipe import pipe_async_iterable
+from myas.utils.aiter_utils import iter_to_aiter, map_async_iterable, merge_async_iterables
 from myas.utils.compose import compose, ensure_coroutine
-from myas.utils.aiter_utils import merge_async_iterables, map_async_iterable, iter_to_aiter
+from myas.utils.pipe import pipe_async_iterable
 
 apipe = pipe_async_iterable
 amerge = merge_async_iterables

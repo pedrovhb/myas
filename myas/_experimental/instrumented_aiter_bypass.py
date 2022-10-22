@@ -7,35 +7,36 @@ import random
 import statistics
 import time
 from abc import ABC, abstractmethod
-from asyncio import iscoroutinefunction, iscoroutine
+from array import array
+from asyncio import iscoroutine, iscoroutinefunction
 from datetime import datetime, timedelta
 from functools import cached_property, lru_cache
 from typing import (
-    AsyncIterator,
-    TypeVar,
-    AsyncIterable,
-    ClassVar,
-    Generic,
-    Callable,
-    Coroutine,
     Any,
-    cast,
-    Protocol,
-    ParamSpec,
-    TypeGuard,
+    AsyncIterable,
+    AsyncIterator,
     Awaitable,
+    Callable,
+    ClassVar,
+    Coroutine,
+    Generic,
+    ParamSpec,
+    Protocol,
+    TypeGuard,
+    TypeVar,
+    cast,
 )
-from array import array
 
 import rich
-
-from myas import apipe, compose
-
+from humanize import naturaldelta as nat_delta
+from humanize import naturalsize as nat_size
+from humanize import naturaltime as nat_time
 from rich.console import Console, Group
-from rich.table import Table
 from rich.live import Live
 from rich.panel import Panel
-from humanize import naturaldelta as nat_delta, naturalsize as nat_size, naturaltime as nat_time
+from rich.table import Table
+
+from myas import apipe, compose
 
 _T = TypeVar("_T")
 

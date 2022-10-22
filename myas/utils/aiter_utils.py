@@ -5,32 +5,33 @@ import functools
 from asyncio import Future, Queue, Task
 from types import NotImplementedType
 from typing import (
+    Annotated,
     Any,
     AsyncIterable,
     AsyncIterator,
+    Awaitable,
     Callable,
     Coroutine,
-    Iterable,
-    ParamSpec,
-    TypeVar,
-    TypeAlias,
-    cast,
-    TypeGuard,
-    NamedTuple,
     Generic,
+    Iterable,
     Iterator,
-    Type,
-    overload,
     Literal,
-    Annotated,
+    NamedTuple,
     NoReturn,
-    Awaitable,
+    ParamSpec,
+    Type,
+    TypeAlias,
+    TypeGuard,
+    TypeVar,
+    cast,
+    overload,
 )
 
 from prompt_toolkit.eventloop import generator_to_async_generator
 
+from myas.closeable_queue import CloseableQueue, QueueClosedException, QueueExhausted
+
 from .compose import ensure_coroutine
-from myas.closeable_queue import QueueExhausted, CloseableQueue, QueueClosedException
 
 T = TypeVar("T")
 U = TypeVar("U")

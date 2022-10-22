@@ -2,19 +2,19 @@ import asyncio
 import io
 import os
 from asyncio import (
+    AbstractEventLoop,
     BaseProtocol,
     BaseTransport,
-    StreamWriter,
     StreamReader,
+    StreamWriter,
     SubprocessProtocol,
-    AbstractEventLoop,
     streams,
 )
 from asyncio.streams import FlowControlMixin, StreamReaderProtocol
 from asyncio.subprocess import SubprocessStreamProtocol
 from asyncio.unix_events import _UnixReadPipeTransport, _UnixWritePipeTransport
 from pathlib import Path
-from typing import AsyncIterable, AsyncIterator, IO
+from typing import IO, AsyncIterable, AsyncIterator
 
 from myas import merge_async_iterables
 
