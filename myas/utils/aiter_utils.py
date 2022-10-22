@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 from asyncio import Future, Queue, Task
+from enum import Enum
 from types import NotImplementedType
 from typing import (
     Annotated,
@@ -424,6 +425,39 @@ async def filter_async_iterable(
     async for item in iterable:
         if await _fn(item):
             yield item
+
+
+class PartitionKeepOption(str, Enum):
+    no = "no"
+    end = "end"
+    beginning = "beginning"
+
+
+async def partition_async_iterable(
+    iterable: AsyncIterable[T],
+    partition_on: T,
+    keep: PartitionKeepOption = PartitionKeepOption.no,
+) -> AsyncIterable[tuple[T, ...]]:
+    # todo - is there a way we can keep the class of the async iterable as we yield it?
+    #  so e.g. a special stream object with pipe operations would remain an instance of that.
+    buf = []
+    async for it in iterable:
+
+        match it, keep:
+            case item, _ if item != partition_on:
+                buf.append(item)
+            case _, PartitionKeepOption.no:
+                yield tuple(buf)
+                buf.clear()
+            case _, PartitionKeepOption.end:
+                buf.append(it)
+                yield tuple(buf)
+                buf.clear()
+            case _, PartitionKeepOption.beginning:
+                yield tuple(buf)
+                buf.clear()
+                buf.append(it)
+    yield tuple(buf)
 
 
 def split_async_iterable(
