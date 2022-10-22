@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import functools
 from asyncio import Future, Queue, Task
+from types import NotImplementedType
 from typing import (
     Any,
     AsyncIterable,
@@ -23,7 +24,10 @@ from typing import (
     Literal,
     Annotated,
     NoReturn,
+    Awaitable,
 )
+
+from prompt_toolkit.eventloop import generator_to_async_generator
 
 from .compose import ensure_coroutine
 from myas.closeable_queue import QueueExhausted, CloseableQueue, QueueClosedException
@@ -66,43 +70,20 @@ def run_sync(f: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
     return decorated
 
 
-def run_on_thread(
-    func: Callable[P, T],
-) -> Callable[P, Coroutine[Any, Any, T]]:
-    """Run a function on a separate thread using the default executor.
-
-    Args:
-        func: The function to run on a thread.
-
-    Returns:
-        The return value of the function.
-    """
-
-    @functools.wraps(func)
-    async def _inner(*args: P.args, **kwargs: P.kwargs) -> T:
-        return await asyncio.to_thread(func, *args, **kwargs)
-
-    return _inner
-
-
 async def iter_to_aiter(iterable: Iterable[T]) -> AsyncIterator[T]:
-    """Convert an iterable to an async iterable.
+    """Convert an iterable to an async iterable (running the iterable in a background thread)."""
 
-    Note that no work is delegated to threads, so blocking operations will still block the event
-    loop. This merely allows for the use of `async for` on an iterable and inserts an async sleep
-    between iterations to allow other tasks to run. To run the iterable on a thread, use
-    `run_on_thread` to decorate a function, or `asyncio.to_thread` to submit it to the default
-    executor.
+    q = CloseableQueue[T]()
+    loop = asyncio.get_running_loop()
 
-    Args:
-        iterable: The iterable to convert.
+    def _inner() -> None:
+        for it in iterable:
+            loop.call_soon_threadsafe(q.put_nowait, it)
+        q.close()
 
-    Returns:
-        An async iterable that yields the items from the iterable.
-    """
-    for item in iterable:
+    asyncio.create_task(asyncio.to_thread(_inner))
+    async for item in queue_to_async_iterator(q):
         yield item
-        await asyncio.sleep(0)
 
 
 async def merge_async_iterables(*async_iterables: AsyncIterable[T]) -> AsyncIterator[T]:
@@ -167,7 +148,7 @@ async def queue_to_async_iterator(queue: Queue[T]) -> AsyncIterator[T]:
 
 
 @overload
-async def async_iterable_to_queue(
+async def async_iterable_to_queue(  # type: ignore
     async_iterable: AsyncIterable[T],
     queue: CloseableQueue[T],
     close_on_finished: Literal[True] = ...,
@@ -219,7 +200,7 @@ async def async_iterable_to_queue(
     async for item in async_iterable:
         await queue.put(item)
     print("Finished iteration")
-    if close_on_finished:
+    if close_on_finished and isinstance(queue, CloseableQueue):
         queue.close()
 
 
@@ -325,23 +306,104 @@ def clone_async_iterable(source: AsyncIterable[T], n_clones: int) -> tuple[Async
     return copied
 
 
-async def map_async_iterable(
-    iterable: AsyncIterable[T],
-    func: Callable[[T], Coroutine[Any, Any, U]] | Callable[[T], U],
-) -> AsyncIterator[U]:
-    """Map a function over an async iterable.
+A = TypeVar("A")
+B = TypeVar("B")
 
-    Args:
-        iterable: The async iterable to map the function over.
-        func: The function to map over the async iterable.
 
-    Yields:
-        The results of the function applied to each item in the async iterable.
-    """
-    _fn = ensure_coroutine(func)
-    async for item in iterable:
-        result = await _fn(item)
-        yield cast(U, result)
+class MappedAsyncIterator(AsyncIterator[B], Generic[A, B]):
+    """An async iterator that maps the items from another async iterator."""
+
+    def __init__(
+        self,
+        mapper: Callable[[A], B] | Callable[[A], Coroutine[Any, Any, B]],
+        *iterables: AsyncIterable[A] | Iterable[A],
+    ) -> None:
+        """Initialize the async iterator.
+
+        Args:
+            async_iterator: The async iterator to map the items from.
+            mapper: The function to map the items with.
+        """
+
+        if not iterables:
+            raise TypeError("Must provide at least one iterable")
+            # todo - make this curried
+            # return functools.partial(map_async_iterable, func)
+
+        aits: Iterable[AsyncIterable[A]] = (
+            async_iterable
+            if isinstance(async_iterable, AsyncIterable)
+            else iter_to_aiter(async_iterable)
+            for async_iterable in iterables
+        )
+        self._stream = merge_async_iterables(*aits)
+
+        self._mapper: Callable[[A], Coroutine[Any, Any, B]] = (
+            mapper if asyncio.iscoroutinefunction(mapper) else ensure_coroutine(mapper)
+        )
+
+    def __aiter__(self) -> AsyncIterator[B]:
+        return self
+
+    async def __anext__(self) -> B:
+        async for item in self._stream:
+            print("Got item")
+            return await self._mapper(item)
+        print("Finished iteration")
+        raise StopAsyncIteration
+
+    @overload  # not sure why mypy doesn't like this - it's more specific than the next overload
+    def __ror__(self, other: AsyncIterable[A] | Iterable[A]) -> MappedAsyncIterator[A, B]:  # type: ignore
+        ...
+
+    @overload
+    def __ror__(self, other: Any) -> NotImplementedType:
+        ...
+
+    def __ror__(self, other: Any) -> MappedAsyncIterator[A, B] | NotImplementedType:
+        print("ror")
+        if isinstance(other, AsyncIterable):
+            _aiter = other
+        elif isinstance(other, Iterable):
+            _aiter = iter_to_aiter(other)
+        else:
+            return NotImplemented
+
+        self._stream = merge_async_iterables(_aiter, self._stream)
+        return self
+
+
+map_async_iterable = MappedAsyncIterator
+
+# async def map_async_iterable(
+#     func: Callable[[T], Coroutine[Any, Any, U]] | Callable[[T], U],
+#     *iterables: AsyncIterable[T],
+# ) -> AsyncIterator[U]:
+#     """Map a function over an async iterable.
+#
+#     Args:
+#         iterables: The async iterable to map the function over.
+#         func: The function to map over the async iterable.
+#
+#     Yields:
+#         The results of the function applied to each item in the async iterable.
+#     """
+#     _fn = ensure_coroutine(func)
+#     if not iterables:
+#         raise TypeError("Must provide at least one iterable")
+#         # todo - make this curried
+#         # return functools.partial(map_async_iterable, func)
+#
+#     aits = (
+#         async_iterable
+#         if isinstance(async_iterable, AsyncIterable)
+#         else iter_to_aiter(cast(Iterable[T], async_iterable))
+#         for async_iterable in iterables
+#     )
+#     ait = merge_async_iterables(*aits)
+#     async for item in ait:
+#         result = await _fn(item)
+#         yield cast(U, result)
 
 
 async def filter_async_iterable(
@@ -410,7 +472,6 @@ __all__ = (
     "_NoStopSentinel",
     "StopQueueIteration",
     "run_sync",
-    "run_on_thread",
     "iter_to_aiter",
     "merge_async_iterables",
     "gather_async_iterables",

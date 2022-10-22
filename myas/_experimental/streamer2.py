@@ -1,9 +1,21 @@
 from __future__ import annotations
 
+
 import asyncio.subprocess
 import functools
-from asyncio import subprocess, streams, IncompleteReadError
-from asyncio.subprocess import Process
+import os.path
+import time
+from asyncio import (
+    subprocess,
+    streams,
+    IncompleteReadError,
+    events,
+    transports,
+    protocols,
+    LimitOverrunError,
+)
+from asyncio.subprocess import Process, SubprocessStreamProtocol
+from concurrent.futures import ProcessPoolExecutor
 from os import PathLike
 from pathlib import Path
 from typing import (
@@ -23,11 +35,14 @@ from typing import (
     AsyncIterator,
     NamedTuple,
     Type,
+    Iterable,
 )
 
+import rich
 from mypy_extensions import Arg
 
-from myas import amerge
+from myas import amerge, amap, iter_to_aiter, merge_async_iterables
+from myas import iter_to_aiter
 
 P = ParamSpec("P")
 R = TypeVar("R")
@@ -37,6 +52,9 @@ T_co = TypeVar("T_co", covariant=True)
 PIPE: Literal[-1] = -1
 STDOUT: Literal[-2] = -2
 DEVNULL: Literal[-3] = -3
+
+
+_DEFAULT_PIPE_BUFFER = 2**16  # 64 KiB (same as streams.FlowControlMixin._DEFAULT_LIMIT)
 
 _ProcT = TypeVar("_ProcT", bound="Proc")
 
@@ -55,23 +73,6 @@ def _process_verifier_wrapper(
 
 
 # def _run_exec(cls: Type[_ProcT])
-
-
-async def line_iterator(
-    stream: streams.StreamReader,
-    sep: bytes,
-    strip_sep: bool = True,
-) -> AsyncIterator[bytes]:
-    while True:
-        try:
-            line = await stream.readuntil(sep)
-        except IncompleteReadError as e:
-            if e.partial:
-                yield e.partial
-            break
-        if strip_sep:
-            line = line[: -len(sep)]
-        yield line
 
 
 class Proc(Process, AsyncIterable[bytes]):
@@ -100,20 +101,64 @@ class Proc(Process, AsyncIterable[bytes]):
     stdout: asyncio.StreamReader
     stderr: asyncio.StreamReader
 
-    # line_separator: bytes
-
-    def _initialize(self, line_separator: bytes = b"\n") -> None:
+    def __init__(
+        self,
+        transport: transports.BaseTransport,
+        protocol: protocols.BaseProtocol,
+        loop: events.AbstractEventLoop,
+        line_separator: bytes | None = b"\n",
+        extra_info: dict[str, Any] | None = None,
+    ) -> None:
+        super().__init__(transport, protocol, loop)
         self.line_separator = line_separator
+        self._aiter = aiter(self.combined_output)
+        self._extra_info = extra_info
 
-    @classmethod
-    def from_process(cls, process: Process, line_separator: bytes = b"\n") -> Proc:
-        process.__class__ = cls
-        if process.stdout is None or process.stderr is None or process.stdin is None:
-            raise ValueError("Process is not connected")
-        proc = cast(Proc, process)
+    async def line_iterator(
+        self,
+        stream: streams.StreamReader,
+        sep: bytes | None,
+        strip_sep: bool = True,
+    ) -> AsyncIterator[bytes]:
+        if sep is None:
+            while True:
+                ln = await stream.read(1)
+                if ln == b"":
+                    return
+                yield ln
+        else:
+            while True:
+                try:
+                    line = await stream.readuntil(sep)
+                except IncompleteReadError as e:
+                    if e.partial:
+                        yield e.partial
+                    return
+                except LimitOverrunError as e:
+                    return
+                if strip_sep:
+                    line = line[: -len(sep)]
+                yield line
 
-        proc._initialize(line_separator)
-        return proc
+    @property
+    def stdout_lines(self) -> AsyncIterator[bytes]:
+        return self.line_iterator(self.stdout, self.line_separator)
+
+    @property
+    def stderr_lines(self) -> AsyncIterable[bytes]:
+        return self.line_iterator(self.stderr, self.line_separator)
+
+    async def feed_from_async_iterable(
+        self,
+        ait: AsyncIterable[bytes],
+        close_when_done: bool = False,
+    ) -> None:
+        async for data in ait:
+            self.write(data)
+            await self.drain()
+
+        if close_when_done:
+            self.stdin.write_eof()
 
     def write(self, data: bytes) -> None:
         """Write data to stdin."""
@@ -121,9 +166,10 @@ class Proc(Process, AsyncIterable[bytes]):
 
     def write_line(self, data: bytes) -> None:
         """Write a line to stdin."""
-        self.write(data + self.line_separator)
+        self.write(data + self.line_separator if self.line_separator else data)
 
     async def drain(self) -> None:
+        """Wait until the stdin buffer is drained."""
         return await self.stdin.drain()
 
     async def reversed_lines(self) -> AsyncIterable[bytes]:
@@ -131,20 +177,73 @@ class Proc(Process, AsyncIterable[bytes]):
             yield line[::-1]
 
     def __iter__(self) -> Iterator[asyncio.StreamReader]:
+        """Make it possible to do `stdout, stderr = proc`."""
         return iter((self.stdout, self.stderr))
 
     @property
     def combined_output(self) -> AsyncIterator[bytes]:
         return amerge(
-            line_iterator(self.stdout, self.line_separator),
-            line_iterator(self.stderr, self.line_separator),
+            self.line_iterator(self.stdout, self.line_separator),
+            self.line_iterator(self.stderr, self.line_separator),
         )
 
     def __aiter__(self) -> AsyncIterator[bytes]:
-        return self.combined_output
+        return self
 
-    run_exec = classmethod(_process_verifier_wrapper(subprocess.create_subprocess_exec))
-    run_shell = classmethod(_process_verifier_wrapper(subprocess.create_subprocess_shell))
+    async def __anext__(self) -> bytes:
+        return await anext(self._aiter)
+
+    def __repr__(self) -> str:
+        return f"<Proc {self.pid} {self._extra_info}>"
+
+    @classmethod
+    async def run_shell(
+        cls: Type[_ProcT],
+        cmd: str | bytes,
+        limit: int = _DEFAULT_PIPE_BUFFER,
+        line_separator: bytes | None = b"\n",
+        **kwds: Any,  # todo - type kwds
+    ) -> _ProcT:
+        loop = events.get_running_loop()
+        transport, protocol = await loop.subprocess_shell(
+            lambda: SubprocessStreamProtocol(limit=limit, loop=loop),
+            cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            **kwds,
+        )
+        return cls(
+            transport, protocol, loop, line_separator=line_separator, extra_info={"cmd": cmd}
+        )
+
+    @classmethod
+    async def run_exec(
+        cls: Type[_ProcT],
+        program: str | bytes | PathLike[str] | PathLike[bytes],
+        *args: str | bytes | PathLike[str] | PathLike[bytes],
+        limit: int = _DEFAULT_PIPE_BUFFER,
+        line_separator: bytes | None = b"\n",
+        **kwds: Any,  # todo - type kwds
+    ) -> _ProcT:
+        # mostly copied over from asyncio.create_subprocess_exec()
+        loop = events.get_running_loop()
+        transport, protocol = await loop.subprocess_exec(
+            lambda: SubprocessStreamProtocol(limit=limit, loop=loop),
+            program,
+            *args,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            **kwds,
+        )
+        return cls(
+            transport,
+            protocol,
+            loop,
+            line_separator=line_separator,
+            extra_info={"program": program, "args": args},
+        )
 
 
 class DuOutput(NamedTuple):
@@ -159,56 +258,155 @@ class DuOutput(NamedTuple):
 
 class DuProc(Proc):
     @classmethod
-    async def over_files(cls, files: AsyncIterable[PathLike[Any]], **kwargs: Any) -> DuProc:
-        return await cls.run_exec("du", "-b")
+    async def over_files(
+        cls,
+        files: AsyncIterable[str | bytes | PathLike[str] | PathLike[bytes]]
+        | Iterable[str | bytes | PathLike[str] | PathLike[bytes]],
+        **kwargs: Any,
+    ) -> DuProc:
+        proc = await cls.run_exec("du", "--files0-from=-", **kwargs)
+
+        if not isinstance(files, AsyncIterable):
+            _files = iter_to_aiter(files)
+        else:
+            _files = files
+
+        async def feed_data() -> None:
+            async for path in _files:
+                if isinstance(path, bytes):
+                    proc.write(path + b"\0")
+                else:
+                    proc.write(str(path).encode() + b"\0")
+
+            proc.stdin.write_eof()
+            proc.stdin.close()
+
+        asyncio.create_task(feed_data(), name="feed_data")
+        proc.ait = aiter(amap(DuOutput.from_line, proc.stdout_lines))
+        return proc
+
+    # type ignore because we're kind of breaking the lsp here
+    async def __anext__(self) -> DuOutput:  # type: ignore
+        result = await super().__anext__()
+        return DuOutput.from_line(result)
+
+    def __aiter__(self) -> AsyncIterator[DuOutput]:  # type: ignore
+        return self
 
 
 async def main() -> None:
-    loop = asyncio.get_running_loop()
+    # loop = asyncio.get_running_loop()
+
+    # async def print_lines() -> None:
+    #     await asyncio.sleep(1)
+    #     print(asyncio.all_tasks())
+    #
+    # asyncio.create_task(print_lines(), name="print_lines")
 
     # noinspection PyArgumentList
-    proc_fd = await Proc.run_exec(
+    # proc_fd = await Proc.run_exec(
+    #     "fd",
+    #     # "--print0",
+    # )
+    # # noinspection PyArgumentList
+    #
+    # proc = await Proc.run_exec(
+    #     "du",
+    #     "--files0-from=-",
+    #     # "--time",
+    #     # "--time-style=full-iso",
+    # )
+    # sout, serr = proc
+    #
+    # async def write_to_du() -> None:
+    #     # for file in Path(".").iterdir():
+    #     #     await asyncio.sleep(0.3)
+    #     #     proc.stdin.write(file.name.encode("utf-8") + b"\0")
+    #     f_out, f_err = proc_fd
+    #     async for ln in f_out:
+    #         proc.stdin.write(ln.strip() + b"\0")
+    #     proc.stdin.write_eof()
+    #
+    # print(f"{isinstance(proc, Proc)=}")
+    # print(f"{isinstance(proc, Process)=}")
+    #
+    # asyncio.create_task(write_to_du(), name="write_to_du")
+    # async for line in proc.stdout:
+    #     print("du", line)
+    #
+    # async for line in proc:
+    #     print("duerr", line)
+    #
+    # await proc.wait()
+    # await proc_fd.wait()
+    #
+    # async def afiles(p: Path) -> AsyncIterable[Path]:
+    #     for file in p.iterdir():
+    #         yield file
+
+    # dp = await DuProc.over_files(afiles(Path("/home/pedro/Downloads")))
+    # proc_fd = await Proc.run_exec(
+    #     "fd",
+    #     "--print0",
+    #     ".",
+    #     "/home/pedro",
+    #     "-e",
+    #     "mp4",
+    #     "-e",
+    #     "jpg",
+    #     line_separator=b"\0",
+    # )
+    # # async for line in DuProc.over_files | amap(lambda l: l + b"\0", proc_fd.stdout_lines):
+    # # async for line in (DuProc.over_files | amap(lambda l: l + b"\0", proc_fd.stdout_lines)):
+    # du_out = await DuProc.over_files(proc_fd.stdout_lines)
+    # async for o in du_out:
+    #     print(o)
+    # exit()
+
+    t = time.perf_counter()
+    # fd = await Proc.run_exec(
+    #     "fd",
+    #     "--print0",
+    #     ".",
+    #     "/home/pedro",
+    #     "-e",
+    #     "mp4",
+    #     # line_separator=None,
+    #     line_separator=b"\0",
+    # )
+    # fd2 = await Proc.run_exec(
+    #     "fd",
+    #     "--print0",
+    #     ".",
+    #     "/home/pedro/Pictures",
+    #     "-e",
+    #     "jpg",
+    #     # line_separator=None,
+    #     line_separator=b"\0",
+    # )
+
+    fd = await Proc.run_exec(
         "fd",
-        # "--print0",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        bufsize=0,
+        "--print0",
+        ".",
+        "/home/pedro",
+        # "-e",
+        # "mp4",
+        "-e",
+        "jpg",
+        "-S",
+        "+5M",
+        # line_separator=None,
+        line_separator=b"\0",
     )
-    # noinspection PyArgumentList
 
-    proc = await Proc.run_exec(
-        "du",
-        "--files0-from=-",
-        # "--time",
-        # "--time-style=full-iso",
-        stdin=asyncio.subprocess.PIPE,
-        stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.PIPE,
-        bufsize=0,
-    )
-    sout, serr = proc
+    dp2 = await DuProc.over_files(fd)
+    async for du_file in dp2:
+        print(du_file)
 
-    async def write_to_du() -> None:
-        # for file in Path(".").iterdir():
-        #     await asyncio.sleep(0.3)
-        #     proc.stdin.write(file.name.encode("utf-8") + b"\0")
-        async for ln in proc_fd.reversed_lines():
-            proc.stdin.write(ln.strip() + b"\0")
-        proc.stdin.write_eof()
-
-    print(f"{isinstance(proc, Proc)=}")
-    print(f"{isinstance(proc, Process)=}")
-
-    asyncio.create_task(write_to_du())
-    async for line in proc.stdout:
-        print("du", line)
-
-    async for line in proc:
-        print("duerr", line)
-
-    await proc.wait()
-    await proc_fd.wait()
+    # async for line in fd_serr:
+    #     print(line)
+    rich.print(f"{time.perf_counter() - t=}")
 
 
 if __name__ == "__main__":

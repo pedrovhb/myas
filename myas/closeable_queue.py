@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Queue, Task, PriorityQueue, Future
+from asyncio import Queue, Task, PriorityQueue, Future, mixins, AbstractEventLoop
 from typing import TypeVar
 
 import myas
@@ -29,8 +29,8 @@ class CloseableQueue(Queue[_T]):
     `wait_closed`.
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, maxsize: int = 0) -> None:
+        super().__init__(maxsize)
         self._ev_closed = asyncio.Event()
         self._ev_exhausted = asyncio.Event()
 
