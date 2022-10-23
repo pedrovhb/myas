@@ -6,7 +6,6 @@ from typing import Any, Counter, Iterable
 import pytest
 from hypothesis import given
 from hypothesis import strategies as st
-from prompt_toolkit.eventloop import generator_to_async_generator
 
 from myas import CloseableQueue, amerge, arange, iter_to_aiter, q2a
 
