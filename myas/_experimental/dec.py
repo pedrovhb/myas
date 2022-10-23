@@ -95,6 +95,17 @@ class ExtendedCoroFunc(Generic[T]):
             return ExtendedAsyncIterable(other) | self._fn
         return NotImplemented
 
+    def __or__(self, other):
+
+        # If the other side is a coroutine function, evaluate it ourselves as the iterable
+        #  (e.g. `arange(5) | collect_list`)
+        if iscoroutinefunction(other):
+            return other(self)
+        elif callable(other):
+            _fn = ensure_coroutine(other)
+            return other(self)
+        return NotImplemented
+
 
 def eas(fn: Callable[P, AsyncIterable[T]]) -> Callable[P, ExtendedAsyncIterable[T]]:
     @wraps(fn)
@@ -161,11 +172,18 @@ async def checkasync(t: AsyncGenerator[int, Any]) -> None:
         print(val)
 
 
+async def collect_list(t: AsyncIterable[T]) -> list[T]:
+    return [val async for val in t]
+
+
 async def main() -> None:
     pipe = arange(5) | transform
 
-    async for ch in arange(5) | transform | spell_out:
+    async for ch in arange(5) | transform | spell_out | list:
         print(ch)
+
+    val = arange(5) | transform | spell_out | collect_list
+    print(val)
 
     check(a for a in "abcdef")
     o = (a async for a in arange(5))
