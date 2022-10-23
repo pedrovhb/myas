@@ -1,23 +1,23 @@
 from __future__ import annotations
 
 from asyncio import iscoroutinefunction
+from collections.abc import AsyncIterable, AsyncIterator, Awaitable, Generator, Iterable
 from functools import wraps
 from types import NotImplementedType
 from typing import (
-    Callable,
-    ParamSpec,
-    TypeVar,
-    Protocol,
     Any,
-    cast,
+    AsyncGenerator,
+    Callable,
     Coroutine,
     Generic,
+    ParamSpec,
+    Protocol,
+    TypeVar,
+    cast,
     overload,
-    AsyncGenerator,
 )
-from collections.abc import AsyncIterable, Iterable, Awaitable, AsyncIterator, Generator
 
-from myas import iter_to_aiter, ensure_coroutine
+from myas import ensure_coroutine, iter_to_aiter
 from myas.stream import merge_iter_aiter
 
 T = TypeVar("T")

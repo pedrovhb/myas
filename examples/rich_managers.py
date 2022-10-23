@@ -1,24 +1,19 @@
 from __future__ import annotations
-from __future__ import annotations
 
-from dataclasses import dataclass
 import asyncio
 import random
+from dataclasses import dataclass
 from itertools import pairwise
-from typing import AsyncIterable, Any, Callable, Coroutine, AsyncIterator, TypeVar, Type
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine, Type, TypeVar
 
 from rich.columns import Columns
-from rich.console import ConsoleOptions, RenderResult, RenderableType, NewLine
-from rich.progress_bar import ProgressBar
-from rich.console import Console, Group
+from rich.console import Console, ConsoleOptions, Group, NewLine, RenderableType, RenderResult
 from rich.live import Live
 from rich.panel import Panel
+from rich.progress import Progress, ProgressColumn
+from rich.progress import Task as RichProgressTask
+from rich.progress_bar import ProgressBar
 from rich.text import Text
-from rich.progress import (
-    Progress,
-    ProgressColumn,
-    Task as RichProgressTask,
-)
 
 from myas import merge_async_iterables
 from myas.processor import WorkerManager, WorkerManagerBase, WorkerManagerStatus

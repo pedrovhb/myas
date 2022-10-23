@@ -2,9 +2,9 @@
 
 import asyncio
 import random
-from typing import AsyncIterable, Any, Callable, Coroutine, AsyncIterator
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine
 
-from myas import q2a, a2q, populate_queue, amap, apipe
+from myas import a2q, amap, apipe, populate_queue, q2a
 from myas.closeable_queue import CloseableQueue, QueueExhausted
 
 

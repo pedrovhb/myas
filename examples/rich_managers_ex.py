@@ -4,8 +4,9 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from rich.progress import Progress, ProgressColumn, Task as RichProgressTask
 from rich.console import Console, ConsoleOptions, RenderResult
+from rich.progress import Progress, ProgressColumn
+from rich.progress import Task as RichProgressTask
 from rich.progress_bar import ProgressBar
 
 from myas.processor import WorkerManagerBase

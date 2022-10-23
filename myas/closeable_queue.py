@@ -1,8 +1,6 @@
 import asyncio
-from asyncio import AbstractEventLoop, Future, PriorityQueue, Queue, Task, mixins
+from asyncio import PriorityQueue, Queue, QueueEmpty
 from typing import TypeVar
-
-import myas
 
 _T = TypeVar("_T")
 
@@ -11,7 +9,7 @@ class QueueClosedException(Exception):
     """Raised when a queue is closed and a new item is added to it."""
 
 
-class QueueExhausted(Exception):
+class QueueExhausted(QueueEmpty):
     """Raised when a queue is closed and no more items can be retrieved."""
 
 
@@ -104,6 +102,10 @@ class CloseableQueue(Queue[_T]):
 
         if exhausted_fut not in done:
             exhausted_fut.cancel()
+
+        if get_fut not in done:
+            get_fut.cancel()
+
         elif self.is_closed and self.empty():
             asyncio.get_running_loop().call_soon(self._notify_exhausted)
 
@@ -143,12 +145,3 @@ class CloseableLifoQueue(CloseableQueue[_T], asyncio.LifoQueue[_T]):
 
     See `CloseableQueue` for details.
     """
-
-
-__all__ = (
-    "CloseableQueue",
-    "CloseablePriorityQueue",
-    "CloseableLifoQueue",
-    "QueueClosedException",
-    "QueueExhausted",
-)

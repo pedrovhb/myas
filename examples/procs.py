@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import json
 import re
@@ -9,23 +10,22 @@ from itertools import pairwise
 from os import PathLike
 from pathlib import Path
 from typing import (
-    AsyncIterable,
     Any,
-    Callable,
-    Coroutine,
+    AsyncIterable,
     AsyncIterator,
-    Generic,
-    TypeVar,
+    Callable,
     ClassVar,
-    Type,
-    NamedTuple,
+    Coroutine,
+    Generic,
     Literal,
+    NamedTuple,
+    Type,
+    TypeVar,
 )
 
 import parse
 
 from myas.processor import WorkerManager
-
 
 _ProcessOutputT = TypeVar("_ProcessOutputT", bound="ProcessOutput")
 
@@ -265,14 +265,12 @@ if __name__ == "__main__":
         async for result in chained:
             print(result)
 
-        path = Path(           "/home/pedro/in.jpg"        )
+        path = Path("/home/pedro/in.jpg")
         dst_path = Path("/home/pedro/out.jpg")
         result = await JpegRecompressOutput.optimize(path, dst_path)
 
         ps = [
-            p
-            for p in Path("/home/pedro/Pictures").iterdir()
-            if p.is_file() and p.suffix == ".jpg"
+            p for p in Path("/home/pedro/Pictures").iterdir() if p.is_file() and p.suffix == ".jpg"
         ]
 
         async def async_jpgs() -> AsyncIterator[Path]:

@@ -1,7 +1,7 @@
 import asyncio
 import random
 from itertools import pairwise
-from typing import AsyncIterable, Any, Callable, Coroutine, AsyncIterator
+from typing import Any, AsyncIterable, AsyncIterator, Callable, Coroutine
 
 from myas.processor import WorkerManager
 

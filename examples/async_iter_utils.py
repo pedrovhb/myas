@@ -5,11 +5,11 @@ import random
 from typing import AsyncIterator
 
 from myas import (
-    pipe_async_iterable,
-    merge_async_iterables,
-    clone_async_iterable,
-    split_async_iterable,
     aclone,
+    merge_async_iterables,
+    pipe_async_iterable,
+    split_async_iterable,
+    tee_async_iterable,
 )
 
 
