@@ -23,9 +23,7 @@ from typing import (
     overload,
 )
 
-from myas.closeable_queue import CloseableQueue, QueueClosedException, QueueExhausted
-
-from .compose import ensure_coroutine
+from myas import ensure_coroutine
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -75,17 +73,21 @@ def run_sync(f: Callable[P, Coroutine[Any, Any, T]]) -> Callable[P, T]:
 async def iter_to_aiter(iterable: Iterable[T]) -> AsyncIterator[T]:
     """Convert an iterable to an async iterable (running the iterable in a background thread)."""
 
-    q = CloseableQueue[T]()
+    done = _SentinelType()
+    q = Queue[T | _SentinelType]()
     loop = asyncio.get_running_loop()
 
     def _inner() -> None:
         for it in iterable:
             loop.call_soon_threadsafe(q.put_nowait, it)
-        loop.call_soon_threadsafe(q.close)
+        loop.call_soon_threadsafe(q.put_nowait, done)
 
     asyncio.create_task(asyncio.to_thread(_inner))
     async for item in queue_to_async_iterator(q):
-        yield item
+        result = item
+        if result is done:
+            break
+        yield result
 
 
 async def merge_async_iterables(*async_iterables: AsyncIterable[T]) -> AsyncIterator[T]:
@@ -131,114 +133,7 @@ async def merge_async_iterables(*async_iterables: AsyncIterable[T]) -> AsyncIter
             yield done_future.result()
 
 
-async def queue_to_async_iterator(queue: Queue[T]) -> AsyncIterator[T]:
-    """Iterate over the items in a queue.
 
-    For ordinary asyncio.Queue objects, iteration will continue indefinitely. For CloseableQueue
-    objects, iteration will stop when the queue is closed.
-
-    Args:
-        queue: The queue to iterate over.
-
-    Yields:
-        The items in the queue.
-    """
-    while True:
-        try:
-            res = await queue.get()
-            queue.task_done()
-            yield res
-        except QueueExhausted:
-            break
-
-
-@overload
-async def async_iterable_to_queue(  # type: ignore
-    async_iterable: AsyncIterable[T],
-    queue: CloseableQueue[T],
-    close_on_finished: Literal[True] = ...,
-) -> None:
-    ...
-
-
-@overload
-async def async_iterable_to_queue(
-    async_iterable: AsyncIterable[T],
-    queue: Queue[T],
-    close_on_finished: Literal[True] = ...,
-) -> NoReturn:
-    ...
-
-
-@overload
-async def async_iterable_to_queue(
-    async_iterable: AsyncIterable[T],
-    queue: Queue[T],
-    close_on_finished: bool = ...,
-) -> None:
-    ...
-
-
-async def async_iterable_to_queue(
-    async_iterable: AsyncIterable[T],
-    queue: Queue[T],
-    close_on_finished: bool = False,
-) -> None:
-    """Iterate over an async iterable and put the items in a queue.
-
-    If `close_on_finished` is True and the queue is a CloseableQueue (or a subclass of it), the
-    queue will be closed when the iteration is finished.
-
-    Args:
-        async_iterable: The async iterable to iterate over.
-        queue: The queue to put the items in.
-        close_on_finished: Whether to close the queue when the iteration is finished.
-
-    Raises:
-        TypeError: If `close_on_finished` is True and the queue is not a CloseableQueue.
-    """
-    if close_on_finished and not isinstance(queue, CloseableQueue):
-        raise TypeError("Cannot close a non-CloseableQueue")
-    if isinstance(queue, CloseableQueue) and queue.is_closed:
-        raise QueueClosedException("Cannot put items in a closed queue")
-
-    async for item in async_iterable:
-        await queue.put(item)
-    print("Finished iteration")
-    if close_on_finished and isinstance(queue, CloseableQueue):
-        queue.close()
-
-
-def populate_queue(
-    queue: Queue[T],
-    *async_iterables: AsyncIterable[T],
-    close_on_finished: bool = False,
-) -> Task[None]:
-    """Populate a queue from multiple async iterables.
-
-    Args:
-        async_iterables: The async iterables to populate the queue from.
-        queue: The queue to populate.
-        close_on_finished: Whether to close the queue when the iteration is finished.
-
-    Returns:
-        The task that is populating the queue.
-
-    Raises:
-        TypeError: If `close_on_finished` is True and the queue is not a CloseableQueue.
-    """
-    if close_on_finished and not isinstance(queue, CloseableQueue):
-        raise TypeError("Cannot close a non-CloseableQueue")
-    if isinstance(queue, CloseableQueue) and queue.is_closed:
-        raise QueueClosedException("Cannot populate a closed queue")
-    task = asyncio.create_task(
-        async_iterable_to_queue(
-            merge_async_iterables(*async_iterables),
-            queue=queue,
-            close_on_finished=close_on_finished,
-        )
-    )
-    return task
 
 
 async def gather_async_iterables(*async_iterables: AsyncIterable[T]) -> list[T]:

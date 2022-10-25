@@ -1,5 +1,11 @@
+from __future__ import annotations
+
 import asyncio
-from typing import Literal
+import inspect
+from typing import Callable, Coroutine, Any, cast, overload, TypeVar, ParamSpec
+
+T = TypeVar("T")
+P = ParamSpec("P")
 
 
 async def wait_all_simultaneously(*evs: asyncio.Event) -> None:
@@ -19,7 +25,7 @@ async def wait_all_simultaneously(*evs: asyncio.Event) -> None:
             break
 
 
-def crt_task_or_raise() -> asyncio.Task:
+def crt_task_or_raise() -> asyncio.Task[T]:
     """Return the current task or raise an exception if it is not a task.
 
     Returns:
@@ -56,3 +62,46 @@ __all__ = (
     "crt_task_or_raise",
     "NegativeAwaitableEvent",
 )
+
+
+@overload
+def ensure_coroutine(
+    fn: Callable[P, Coroutine[Any, Any, T]],
+) -> Callable[P, Coroutine[Any, Any, T]]:
+    ...
+
+
+@overload
+def ensure_coroutine(
+    fn: Callable[P, T],
+) -> Callable[P, Coroutine[Any, Any, T]]:
+    ...
+
+
+def ensure_coroutine(
+    fn: Callable[P, T] | Callable[P, Coroutine[Any, Any, T]],
+) -> Callable[P, Coroutine[Any, Any, T]]:
+    """Ensure that a function is a coroutine (i.e. async).
+
+    If the given callable is not a coroutine, it will be wrapped in a coroutine that calls the
+    function and returns the result. Otherwise, the function is returned as-is.
+
+    Args:
+        fn: The function to ensure is a coroutine.
+
+    Returns:
+        The function as a coroutine.
+    """
+
+    if inspect.iscoroutinefunction(fn):
+        _fn = cast(Callable[P, Coroutine[Any, Any, T]], fn)
+        return _fn
+
+    _fn_sync = cast(Callable[P, T], fn)
+
+    async def _as_async(*args: P.args, **kwargs: P.kwargs) -> T:
+        result = _fn_sync(*args, **kwargs)
+        return result
+
+    # return cast(Callable[P, Coroutine[Any, Any, _OutputT]], _as_async)
+    return _as_async

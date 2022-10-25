@@ -15,6 +15,7 @@ from asyncio import (
 )
 from asyncio.subprocess import Process, SubprocessStreamProtocol
 from concurrent.futures import ProcessPoolExecutor
+from hashlib import md5
 from os import PathLike
 from pathlib import Path
 from typing import (
@@ -407,5 +408,176 @@ async def main() -> None:
     rich.print(f"{time.perf_counter() - t=}")
 
 
+big_file = "/dev/shm/random1"
+cmds = [
+    ["fd", "--print0", ".", "/home/pedro", "-uu"],
+    ["du", "-h", "--files0-from=-"],
+]
+
+cmds = [
+    ["cat", big_file],
+    ["zstd", "-"],
+]
+
+cmds = [
+    ["cat", big_file],
+    ["md5sum", "-"],
+]
+
+OUT_READ_SIZE = 1024 * 1024 * 10
+
+
+async def direct_md5() -> bytes:
+    # f = os.open(big_file, os.O_RDONLY)
+    process_1 = await asyncio.create_subprocess_exec(
+        "md5sum",
+        "-",
+        stdin=Path(big_file).open("rb"),
+        stdout=Path(big_file + ".md5").open("wb"),
+    )
+    await process_1.wait()
+    return Path(big_file + ".md5").read_bytes()
+    # os.close(f)
+    # async for line in process_1.stdout:
+    #     yield line
+    # process_2 = await asyncio.create_subprocess_exec(
+    #     *cmds[1],
+    #     stdin=read,
+    #     stdout=PIPE,
+    # )
+    # os.close(read)
+    # assert process_2.stdout is not None
+    #
+    # while True:
+    #     line = await process_2.stdout.read(OUT_READ_SIZE)
+    #     if not line:
+    #         break
+    #     yield line
+
+
+async def direct_pipe_example() -> AsyncIterator[bytes]:
+    read, write = os.pipe()
+    process_1 = await asyncio.create_subprocess_exec(
+        *cmds[0],
+        stdout=write,
+    )
+    os.close(write)
+    process_2 = await asyncio.create_subprocess_exec(
+        *cmds[1],
+        stdin=read,
+        stdout=PIPE,
+    )
+    os.close(read)
+    assert process_2.stdout is not None
+
+    while True:
+        line = await process_2.stdout.read(OUT_READ_SIZE)
+        if not line:
+            break
+        yield line
+
+
+async def aio_reader_writer_example() -> AsyncIterator[bytes]:
+    process_1 = await asyncio.create_subprocess_exec(
+        *cmds[0],
+        stdout=asyncio.subprocess.PIPE,
+    )
+    process_2 = await asyncio.create_subprocess_exec(
+        *cmds[1],
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+    )
+
+    assert process_1.stdout is not None
+    assert process_2.stdin is not None
+
+    async def fillit() -> None:
+        while True:
+            line = await process_1.stdout.read(OUT_READ_SIZE)
+            if not line:
+                break
+            process_2.stdin.write(line)
+        process_2.stdin.write_eof()
+
+    asyncio.create_task(fillit())
+
+    while True:
+        line = await process_2.stdout.read(OUT_READ_SIZE)
+        if not line:
+            break
+        yield line
+
+
+async def compare_pipes() -> None:
+
+    con = rich.get_console()
+    con.rule()
+    con.print("direct_pipe_example")
+    t1 = time.perf_counter()
+    out_direct_pipe = [ln async for ln in direct_pipe_example()]
+    t2 = time.perf_counter()
+    con.print(f"Got result in {t2 - t1:.5f} seconds: {len(out_direct_pipe)} lines")
+    con.print(f"Output: {out_direct_pipe!r}")
+
+    con.rule()
+    con.print("direct_md5")
+    t1 = time.perf_counter()
+    out_direct_md5 = await direct_md5()
+    t2 = time.perf_counter()
+    con.print(f"Got result in {t2 - t1:.5f} seconds: {len(out_direct_md5)} lines")
+    con.print(f"Output: {out_direct_md5!r}")
+
+    con.rule()
+    con.print("aio_reader_writer_example")
+    t1 = time.perf_counter()
+    out_aio_reader_writer = [ln async for ln in aio_reader_writer_example()]
+    t2 = time.perf_counter()
+    con.print(f"Got result in {t2 - t1:.5f} seconds: {len(out_aio_reader_writer)} lines")
+    con.print(f"Hash output: {out_aio_reader_writer}")
+
+    con.rule()
+    con.print("python md5 off hashlib")
+    t1 = time.perf_counter()
+    py_md5 = md5(Path(big_file).read_bytes()).hexdigest().encode()
+    t2 = time.perf_counter()
+    con.print(f"Got result in {t2 - t1:.5f} seconds: {len(py_md5)} lines")
+    con.print(f"Output: {py_md5!r}")
+
+    # print("direct_pipe_example")
+    # t = time.perf_counter()
+    # dp = direct_pipe_example()
+    # first = await anext(dp)
+    # t_first = time.perf_counter() - t
+    # async for line in dp:
+    #     pass
+    # t_remaining = time.perf_counter() - t - t_first
+    # print(f"{t_first=}")
+    # print(f"{t_remaining=}")
+    #
+    # print("aio_reader_writer_example")
+    # t = time.perf_counter()
+    # ar = aio_reader_writer_example()
+    # first = await anext(ar)
+    # t_first = time.perf_counter() - t
+    # async for line in ar:
+    #     pass
+    # t_remaining = time.perf_counter() - t - t_first
+    # print(f"{t_first=}")
+    # print(f"{t_remaining=}")
+
+    output = Path(big_file + ".md5")
+    Path(big_file + ".md5").unlink(missing_ok=True)
+    print("direct_md5")
+    t1 = time.perf_counter()
+    await direct_md5()
+    t2 = time.perf_counter() - t1
+    print(f"Time taken was {t2=:0.5f} seconds")
+    print(output.read_text())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    # asyncio.run(main())
+    t = time.perf_counter()
+    out = asyncio.run(compare_pipes())
+    # print(out)
+    print(f"{time.perf_counter() - t=}")

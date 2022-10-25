@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import inspect
-from typing import Any, Callable, Coroutine, ParamSpec, TypeVar, cast, overload
+from typing import Any, Callable, Coroutine, ParamSpec, TypeVar, overload
+
+import myas
 
 P = ParamSpec("P")
 _InputT = TypeVar("_InputT")
@@ -16,49 +17,6 @@ _F = TypeVar("_F")
 
 T = TypeVar("T")
 U = TypeVar("U")
-
-
-@overload
-def ensure_coroutine(
-    fn: Callable[P, Coroutine[Any, Any, _OutputT]],
-) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
-    ...
-
-
-@overload
-def ensure_coroutine(
-    fn: Callable[P, _OutputT],
-) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
-    ...
-
-
-def ensure_coroutine(
-    fn: Callable[P, _OutputT] | Callable[P, Coroutine[Any, Any, _OutputT]],
-) -> Callable[P, Coroutine[Any, Any, _OutputT]]:
-    """Ensure that a function is a coroutine (i.e. async).
-
-    If the given callable is not a coroutine, it will be wrapped in a coroutine that calls the
-    function and returns the result. Otherwise, the function is returned as-is.
-
-    Args:
-        fn: The function to ensure is a coroutine.
-
-    Returns:
-        The function as a coroutine.
-    """
-
-    if inspect.iscoroutinefunction(fn):
-        _fn = cast(Callable[P, Coroutine[Any, Any, _OutputT]], fn)
-        return _fn
-
-    _fn_sync = cast(Callable[P, _OutputT], fn)
-
-    async def _as_async(*args: P.args, **kwargs: P.kwargs) -> _OutputT:
-        result = _fn_sync(*args, **kwargs)
-        return result
-
-    # return cast(Callable[P, Coroutine[Any, Any, _OutputT]], _as_async)
-    return _as_async
 
 
 #
@@ -148,10 +106,10 @@ def compose(
         A function that composes the given functions together.
     """
     if not fns:
-        return ensure_coroutine(fn)
+        return myas.ensure_coroutine(fn)
 
-    _fn = ensure_coroutine(fn)
-    _fns = [ensure_coroutine(f) for f in fns]
+    _fn = myas.ensure_coroutine(fn)
+    _fns = [myas.ensure_coroutine(f) for f in fns]
 
     async def _composed(*args: P.args, **kwargs: P.kwargs) -> Any:
         result = await _fn(*args, **kwargs)
@@ -162,7 +120,4 @@ def compose(
     return _composed
 
 
-__all__ = (
-    "compose",
-    "ensure_coroutine",
-)
+__all__ = ("compose",)
